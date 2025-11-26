@@ -5,11 +5,43 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Landing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
     <h1>Hello {{ username|e }}!</h1>
     <p><a href="{{ url_for('index') }}">Back</a></p>
+
+    <div id="user-alert" role="status" aria-live="polite"></div>
+
+    <script>
+        // Poll the /usersdb endpoint periodically and show an alert
+        const POLL_INTERVAL_MS = 3000;
+        const ALERT_THRESHOLD = 3;
+
+        async function checkUserCount() {
+            try {
+                const res = await fetch("{{ url_for('get_users') }}", { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const count = Object.keys(data).length;
+                const alertEl = document.getElementById('user-alert');
+                if (count > ALERT_THRESHOLD) {
+                    alertEl.textContent = `There are now ${count} users (more than ${ALERT_THRESHOLD}).`;
+                    alertEl.style.display = 'block';
+                } else {
+                    alertEl.style.display = 'none';
+                }
+            } catch (err) {
+                // ignore transient errors
+                console.error('Error checking user count', err);
+            }
+        }
+
+        // initial check and periodic polling
+        checkUserCount();
+        setInterval(checkUserCount, POLL_INTERVAL_MS);
+    </script>
 </body>
 
 </html>

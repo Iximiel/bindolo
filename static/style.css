@@ -1,0 +1,34 @@
+/* Shared site stylesheet */
+:root {
+    --alert-bg: #ffeeba;
+    --alert-border: #f5c6cb;
+}
+
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    line-height: 1.4;
+    padding: 18px;
+}
+
+h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem
+}
+
+/* user alert banner used on landing page */
+#user-alert {
+    display: none;
+    background: var(--alert-bg);
+    padding: 12px;
+    border: 1px solid var(--alert-border);
+    margin: 12px 0;
+}
+
+/* small helpers */
+form {
+    margin-top: 12px
+}
+
+button {
+    padding: 6px 10px
+}
