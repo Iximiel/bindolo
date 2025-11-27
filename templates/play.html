@@ -10,8 +10,117 @@
 
 <body>
     <h1>Play</h1>
+    {% if username %}
+    <p>Hello {{ username|e }} — you're on the Play page.</p>
+    {% else %}
     <p>Enter your text below and press Submit (button is non-submitting for now).</p>
+    {% endif %}
 
+    {% if user_state == 'player' %}
+    <div>
+        <label for="play-text">Text</label><br />
+        <textarea id="play-text" name="text" rows="6" cols="60"></textarea>
+    </div>
+    <div style="margin-top:8px;">
+        <button type="button" id="player-submit">Submit (Player)</button>
+    </div>
+
+    <script>
+        const PLAY_POLL_MS = 2000;
+        async function checkPlayState() {
+            try {
+                const res = await fetch("{{ url_for('get_state') }}", { cache: 'no-store' });
+                if (!res.ok) return;
+                const s = await res.json();
+                if (s.state === 'game_waiting_for_definitions_irl') {
+                    window.location.href = "{{ url_for('reading') }}";
+                }
+            } catch (err) {
+                console.error('error polling state', err);
+            }
+        }
+        // start polling to detect when it's time to move to reading
+        checkPlayState();
+        setInterval(checkPlayState, PLAY_POLL_MS);
+
+        async function playerSubmit() {
+            const text = document.getElementById('play-text').value;
+            try {
+                const res = await fetch("{{ url_for('submit_player') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    alert('Submit failed: ' + (err.error || res.statusText));
+                    return;
+                }
+                const data = await res.json();
+                alert('Player submission saved.');
+                console.log('player submit response', data);
+                if (data.move) {
+                    // immediate redirect if server indicates everyone submitted
+                    window.location.href = "{{ url_for('reading') }}";
+                }
+            } catch (err) {
+                console.error('player submit error', err);
+                alert('Submit failed');
+            }
+        }
+
+        document.getElementById('player-submit').addEventListener('click', playerSubmit);
+    </script>
+
+    {% elif user_state == 'reader' %}
+    <div>
+        <label for="reader-word">Word</label><br />
+        <input id="reader-word" name="word" type="text" maxlength="60" />
+    </div>
+    <div style="margin-top:8px;">
+        <label for="reader-text">Full text</label><br />
+        <textarea id="reader-text" name="text" rows="4" cols="60"></textarea>
+    </div>
+    <div style="margin-top:8px;">
+        <button type="button" id="reader-submit">Submit (Reader)</button>
+    </div>
+
+    <script>
+        async function readerSubmit() {
+            const word = document.getElementById('reader-word').value.trim();
+            const text = document.getElementById('reader-text').value;
+            if (!word && !text) { alert('Please enter a word or text'); return; }
+            try {
+                const payload = {};
+                if (word) payload.word = word;
+                if (text) payload.text = text;
+
+                const res = await fetch("{{ url_for('submit_reader') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    alert('Submit failed: ' + (err.error || res.statusText));
+                    return;
+                }
+                const data = await res.json();
+                alert('Reader submission saved.');
+                console.log('reader submit response', data);
+                if (data.move) {
+                    window.location.href = "{{ url_for('reading') }}";
+                }
+            } catch (err) {
+                console.error('reader submit error', err);
+                alert('Submit failed');
+            }
+        }
+
+        document.getElementById('reader-submit').addEventListener('click', readerSubmit);
+    </script>
+
+    {% else %}
     <div>
         <label for="play-text">Text</label><br />
         <textarea id="play-text" name="text" rows="6" cols="60"></textarea>
@@ -21,13 +130,14 @@
     </div>
 
     <script>
-        // No-op placeholder: button doesn't POST to server by design (no backend handling requested)
+        // Fallback no-op submit
         document.getElementById('play-submit').addEventListener('click', function () {
             const text = document.getElementById('play-text').value;
-            console.log('Play submit (no-op):', text);
+            console.log('Fallback submit (no-op):', text);
             alert('Submitted (no-op): ' + (text ? text.substring(0, 200) : '(empty)'));
         });
     </script>
+    {% endif %}
 </body>
 
 </html>

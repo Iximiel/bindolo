@@ -32,6 +32,8 @@
         const USERNAME = {{ username| tojson }};
         const INITIAL_USER_STATE = {{ (user_state |default ('entering'))| tojson }};
 
+        let _initialized = false;
+
         async function setUserState(state) {
             try {
                 const res = await fetch("{{ url_for('set_user_state') }}", {
@@ -57,14 +59,18 @@
                 // enable/disable checkbox depending on whether enough players have joined
                 checkbox.disabled = !data.necessary_players;
 
-                // set checked according to initial state when first loaded
-                if (INITIAL_USER_STATE) {
+                // set checked according to initial state only once on first load
+                if (!_initialized) {
                     checkbox.checked = INITIAL_USER_STATE === 'ready';
+                    _initialized = true;
                 }
 
                 if (data.all_ready) {
-                    alertEl.textContent = 'All players are READY.';
+                    alertEl.textContent = 'All players are READY. Redirecting...';
                     alertEl.style.display = 'block';
+                    // brief delay so users see the message before redirect
+                    setTimeout(() => { window.location.href = "{{ url_for('play') }}"; }, 700);
+                    return;
                 } else if (data.necessary_players) {
                     alertEl.textContent = 'Enough players have joined.';
                     alertEl.style.display = 'block';

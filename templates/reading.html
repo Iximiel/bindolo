@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Reading</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .center-word {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 60vh;
+            font-size: 3rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .carousel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .carousel-box {
+            width: 90vw;
+            max-width: 800px;
+            min-height: 200px;
+            border: 1px solid #ddd;
+            padding: 12px;
+            overflow: auto;
+            background: #fff;
+        }
+
+        .carousel-controls {
+            display: flex;
+            gap: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Reading Page</h1>
+    {% if not username %}
+    <p>You are not logged in; please register from the landing page.</p>
+    {% else %}
+
+    {% if user_state == 'player' %}
+    <div class="center-word" role="status" aria-live="polite">
+        {% if reader_text %}
+        {{ reader_text.upper() }}
+        {% else %}
+        (no word from reader yet)
+        {% endif %}
+    </div>
+
+    {% elif user_state == 'reader' %}
+    <div class="carousel">
+        <div id="carousel-box" class="carousel-box">
+            {% if player_texts %}
+            <div id="carousel-item">
+                <strong>{{ player_texts[0].username }}:</strong>
+                <div>{{ player_texts[0].text }}</div>
+            </div>
+            {% else %}
+            <div id="carousel-item">No player texts yet.</div>
+            {% endif %}
+        </div>
+
+        <div class="carousel-controls">
+            <button id="prev">Prev</button>
+            <button id="next">Next</button>
+            <button id="auto">Auto</button>
+        </div>
+    </div>
+
+    <script>
+        const items = {{ player_texts| tojson }} || [];
+        let idx = 0;
+        let interval = null;
+
+        function render() {
+            const box = document.getElementById('carousel-box');
+            const el = document.getElementById('carousel-item');
+            if (!items.length) {
+                el.innerHTML = 'No player texts yet.';
+                return;
+            }
+            const it = items[idx];
+            el.innerHTML = `<strong>${it.username}:</strong><div>${it.text}</div>`;
+        }
+
+        document.getElementById('prev').addEventListener('click', function () {
+            if (!items.length) return;
+            idx = (idx - 1 + items.length) % items.length;
+            render();
+        });
+        document.getElementById('next').addEventListener('click', function () {
+            if (!items.length) return;
+            idx = (idx + 1) % items.length;
+            render();
+        });
+
+        document.getElementById('auto').addEventListener('click', function () {
+            if (interval) {
+                clearInterval(interval);
+                interval = null;
+                this.textContent = 'Auto';
+                return;
+            }
+            interval = setInterval(function () {
+                if (!items.length) return;
+                idx = (idx + 1) % items.length;
+                render();
+            }, 2500);
+            this.textContent = 'Stop';
+        });
+
+        // initial render
+        render();
+    </script>
+
+    {% else %}
+    <p>Your role is not set; go to the play page.</p>
+    {% endif %}
+
+    {% endif %}
+</body>
+
+</html>
