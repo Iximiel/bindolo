@@ -79,14 +79,52 @@ def landing():
       info = UserInfo()
       usersdb[username] = info
 
-  return render_template("landing.html", username=username, accepted=True)
+  return render_template("landing.html", username=username, accepted=True, user_state=info.state.value)
+
+
+@app.route("/user/state", methods=["POST"])
+def set_user_state():
+  # Accept JSON or form data with `username` and `state`
+  data = request.get_json(silent=True) or request.form
+  username = data.get("username") if hasattr(data, "get") else None
+  state_val = data.get("state") if hasattr(data, "get") else None
+  if not username or not state_val:
+    return jsonify({"error": "username and state are required"}), 400
+
+  with USERS_LOCK:
+    user = usersdb.get(username)
+    if user is None:
+      return jsonify({"error": "user not found"}), 404
+    try:
+      new_state = UserState(state_val)
+    except ValueError:
+      # allow passing enum name as alternative
+      try:
+        new_state = UserState[state_val.upper()]
+      except Exception:
+        return jsonify({"error": "invalid state"}), 400
+    user.state = new_state
+
+  return jsonify({"username": username, "state": user.state.value})
 
 
 @app.route("/usersdb", methods=["GET"])
 def get_users():
-  # return JSON mapping of username -> info
+  # return simple status booleans used by the landing page polling JS
+  # - `necessary_players`: true when we have at least the minimum number of players
+  # - `all_ready`: true when there is at least one user and every user is in the READY state
   with USERS_LOCK:
-    return jsonify({k: {"state": v.state.value, "text": v.text} for k, v in usersdb.items()})
+    total = len(usersdb)
+    necessary_players = total >= 3
+    all_ready = total > 0 and all(v.state is UserState.READY for v in usersdb.values())
+    return jsonify({"necessary_players": necessary_players, "all_ready": all_ready})
+
+
+@app.route("/players", methods=["GET"])
+def get_players():
+  # return a simple mapping of username -> state (no text)
+  with USERS_LOCK:
+    return jsonify({k: v.state.value for k, v in usersdb.items()})
 
 
 @app.route("/state", methods=["GET"])
@@ -101,6 +139,17 @@ def clear_users():
   with USERS_LOCK:
     usersdb.clear()
   return redirect(url_for("index"))
+
+
+@app.route("/admin", methods=["GET"])
+def admin():
+  return render_template('admin.html')
+
+
+@app.route("/play", methods=["GET"])
+def play():
+  # Simple play page with a text box and submit button (no backend handling)
+  return render_template('play.html')
 
 
 if __name__ == "__main__":

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Admin — Players</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <h1>Admin — Players</h1>
+    <p>This is a passive admin view showing connected players and their state.</p>
+
+    <section>
+        <h2>Players</h2>
+        <ul id="players-list">
+            <li>Loading…</li>
+        </ul>
+    </section>
+
+    <script>
+        const POLL_INTERVAL_MS = 3000;
+
+        async function loadPlayers() {
+            try {
+                const res = await fetch("{{ url_for('get_players') }}", { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const list = document.getElementById('players-list');
+                list.innerHTML = '';
+                const keys = Object.keys(data).sort();
+                if (keys.length === 0) {
+                    const li = document.createElement('li');
+                    li.textContent = 'No players';
+                    list.appendChild(li);
+                    return;
+                }
+                for (const k of keys) {
+                    const li = document.createElement('li');
+                    li.textContent = `${k} — ${data[k]}`;
+                    list.appendChild(li);
+                }
+            } catch (err) {
+                console.error('Failed loading players', err);
+            }
+        }
+
+        loadPlayers();
+        setInterval(loadPlayers, POLL_INTERVAL_MS);
+    </script>
+</body>
+
+</html>

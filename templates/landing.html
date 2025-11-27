@@ -20,33 +20,77 @@
 
     <div id="user-alert" role="status" aria-live="polite"></div>
 
-    <script>
-        // Poll the /usersdb endpoint periodically and show an alert
-        const POLL_INTERVAL_MS = 3000;
-        const ALERT_THRESHOLD = 3;
+    <div>
+        <input type="checkbox" id="ready-checkbox" />
+        <label for="ready-checkbox">Ready</label>
+    </div>
 
-        async function checkUserCount() {
+    <script>
+        const POLL_INTERVAL_MS = 3000;
+
+        // expose username & initial state from server-rendered template
+        const USERNAME = {{ username| tojson }};
+        const INITIAL_USER_STATE = {{ (user_state |default ('entering'))| tojson }};
+
+        async function setUserState(state) {
+            try {
+                const res = await fetch("{{ url_for('set_user_state') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: USERNAME, state: state })
+                });
+                return res.ok;
+            } catch (err) {
+                console.error('Error setting user state', err);
+                return false;
+            }
+        }
+
+        async function checkGameStatus() {
             try {
                 const res = await fetch("{{ url_for('get_users') }}", { cache: 'no-store' });
                 if (!res.ok) return;
                 const data = await res.json();
-                const count = Object.keys(data).length;
                 const alertEl = document.getElementById('user-alert');
-                if (count > ALERT_THRESHOLD) {
-                    alertEl.textContent = `There are now ${count} users (more than ${ALERT_THRESHOLD}).`;
+                const checkbox = document.getElementById('ready-checkbox');
+
+                // enable/disable checkbox depending on whether enough players have joined
+                checkbox.disabled = !data.necessary_players;
+
+                // set checked according to initial state when first loaded
+                if (INITIAL_USER_STATE) {
+                    checkbox.checked = INITIAL_USER_STATE === 'ready';
+                }
+
+                if (data.all_ready) {
+                    alertEl.textContent = 'All players are READY.';
+                    alertEl.style.display = 'block';
+                } else if (data.necessary_players) {
+                    alertEl.textContent = 'Enough players have joined.';
                     alertEl.style.display = 'block';
                 } else {
                     alertEl.style.display = 'none';
                 }
             } catch (err) {
-                // ignore transient errors
-                console.error('Error checking user count', err);
+                console.error('Error checking game status', err);
             }
         }
 
         // initial check and periodic polling
-        checkUserCount();
-        setInterval(checkUserCount, POLL_INTERVAL_MS);
+        checkGameStatus();
+        setInterval(checkGameStatus, POLL_INTERVAL_MS);
+
+        // handle checkbox change
+        document.getElementById('ready-checkbox').addEventListener('change', async function (e) {
+            const checked = e.target.checked;
+            const newState = checked ? 'ready' : 'entering';
+            const ok = await setUserState(newState);
+            if (!ok) {
+                // revert checkbox if update failed
+                e.target.checked = !checked;
+                alert('Failed to update ready state');
+            }
+        });
     </script>
 </body>
 
