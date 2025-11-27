@@ -32,3 +32,42 @@ form {
 button {
     padding: 6px 10px
 }
+
+/* Make form controls responsive on small screens (phones) */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+input[type="text"],
+textarea,
+select {
+    max-width: 100%;
+    width: 100%;
+}
+
+/* Ensure the textarea remains usable on narrow viewports */
+textarea {
+    min-height: 6rem;
+    resize: vertical;
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 12px;
+    }
+
+    h1 {
+        font-size: 1.25rem;
+    }
+
+    textarea {
+        min-height: 8rem;
+    }
+
+    button {
+        padding: 8px 12px;
+        font-size: 1rem;
+    }
+}

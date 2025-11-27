@@ -4,6 +4,7 @@ from typing import Dict, Any
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from threading import Lock
+import os
 
 app = Flask(__name__)
 
@@ -45,6 +46,14 @@ USERS_LOCK = Lock()
 # Global application state
 app_state = AppState()
 STATE_LOCK = Lock()
+
+# Convenience: add two fake users for quick local testing when the
+# environment variable `BINDOLO_FAKE_USERS=1` is set. This is temporary
+# and safe for development — it won't run unless you set the env var.
+if os.getenv("BINDOLO_FAKE_USERS") == "1":
+  with USERS_LOCK:
+    usersdb.setdefault("alice", UserInfo())
+    usersdb.setdefault("bob", UserInfo())
 
 
 @app.route("/", methods=["GET"])

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Play</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <h1>Play</h1>
+    <p>Enter your text below and press Submit (button is non-submitting for now).</p>
+
+    <div>
+        <label for="play-text">Text</label><br />
+        <textarea id="play-text" name="text" rows="6" cols="60"></textarea>
+    </div>
+    <div style="margin-top:8px;">
+        <button type="button" id="play-submit">Submit</button>
+    </div>
+
+    <script>
+        // No-op placeholder: button doesn't POST to server by design (no backend handling requested)
+        document.getElementById('play-submit').addEventListener('click', function () {
+            const text = document.getElementById('play-text').value;
+            console.log('Play submit (no-op):', text);
+            alert('Submitted (no-op): ' + (text ? text.substring(0, 200) : '(empty)'));
+        });
+    </script>
+</body>
+
+</html>
