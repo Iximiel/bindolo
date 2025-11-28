@@ -41,6 +41,9 @@ class AppState:
   # becomes True the first time all users are ready (and minimum player requirement met)
   started: bool = False
   word: str | None = None
+  # rotation order for selecting the reader and next index
+  reader_order: list[str] | None = None
+  reader_idx: int = 0
 
 
 # In-memory storage for usernames while the server is running
@@ -91,7 +94,7 @@ def landing():
       "landing.html", username=username, accepted=False, reason=reason
     )
 
-  # register user in-memory (no counter)
+  # register user in-memory
   with USERS_LOCK:
     info = usersdb.get(username)
     if info is None:
@@ -142,11 +145,25 @@ def set_user_state():
         app_state.state = GameState.GAME_WAITING_FOR_DEFINITIONS
       if not app_state.started:
         app_state.started = True
-        # Assign roles: pick one random user as READER, others become PLAYER
+        # Build or refresh a rotation order for readers. We preserve any
+        # existing order where possible, but default to the current user list.
         with USERS_LOCK:
-          usernames = list(usersdb.keys())
-          if usernames:
-            reader = random.choice(usernames)
+          current_users = list(usersdb.keys())
+
+        # If there's no existing order or it doesn't match the current users,
+        # create a new order from the current user list.
+        if not app_state.reader_order or set(app_state.reader_order) != set(current_users):
+          app_state.reader_order = current_users.copy()
+          app_state.reader_idx = 0
+
+        # choose the next reader based on the rotation index
+        if app_state.reader_order:
+          idx = app_state.reader_idx % len(app_state.reader_order)
+          reader = app_state.reader_order[idx]
+          app_state.reader_idx = (idx + 1) % len(app_state.reader_order)
+
+          # Assign roles accordingly
+          with USERS_LOCK:
             for uname, u in usersdb.items():
               if uname == reader:
                 u.state = UserState.READER
@@ -251,6 +268,35 @@ def reading():
     game_word=word,
     player_texts=player_texts,
   )
+
+
+@app.route('/reading/restart', methods=['POST'])
+def reading_restart():
+  # Only the current reader may trigger a restart
+  username = session.get('username')
+  if not username:
+    return jsonify({'error': 'not authenticated'}), 403
+
+  with USERS_LOCK:
+    user = usersdb.get(username)
+    if user is None:
+      return jsonify({'error': 'user not found'}), 404
+    if user.state is not UserState.READER:
+      return jsonify({'error': 'only the reader may restart the round'}), 403
+
+  # Reset global state and per-user states
+  with STATE_LOCK:
+    app_state.state = GameState.WAITING_FOR_PLAYERS
+    #we do not want to add new players now
+    app_state.started = True
+    app_state.word = None
+
+  with USERS_LOCK:
+    for u in usersdb.values():
+      u.state = UserState.ENTERING
+      u.text = ""
+
+  return jsonify({'ok': True})
 
 
 @app.route("/play/submit", methods=["POST"])

@@ -19,6 +19,9 @@
                 if (s.state === 'game_waiting_for_decision_irl') {
                     window.location.href = "{{ url_for('reading') }}";
                 }
+                if (s.state === 'waiting_for_players') {
+                    window.location.href = "{{ url_for('landing') }}";
+                }
             } catch (err) {
                 console.error('error polling state', err);
             }
