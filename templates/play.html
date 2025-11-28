@@ -9,22 +9,6 @@
 </head>
 
 <body>
-    <h1>Play</h1>
-    {% if username %}
-    <p>Hello {{ username|e }} — you're on the Play page.</p>
-    {% else %}
-    <p>Enter your text below and press Submit (button is non-submitting for now).</p>
-    {% endif %}
-
-    {% if user_state == 'player' %}
-    <div>
-        <label for="play-text">Text</label><br />
-        <textarea id="play-text" name="text" rows="6" cols="60"></textarea>
-    </div>
-    <div style="margin-top:8px;">
-        <button type="button" id="player-submit">Submit (Player)</button>
-    </div>
-
     <script>
         const PLAY_POLL_MS = 2000;
         async function checkPlayState() {
@@ -32,7 +16,7 @@
                 const res = await fetch("{{ url_for('get_state') }}", { cache: 'no-store' });
                 if (!res.ok) return;
                 const s = await res.json();
-                if (s.state === 'game_waiting_for_definitions_irl') {
+                if (s.state === 'game_waiting_for_decision_irl') {
                     window.location.href = "{{ url_for('reading') }}";
                 }
             } catch (err) {
@@ -42,60 +26,36 @@
         // start polling to detect when it's time to move to reading
         checkPlayState();
         setInterval(checkPlayState, PLAY_POLL_MS);
-
-        async function playerSubmit() {
-            const text = document.getElementById('play-text').value;
-            try {
-                const res = await fetch("{{ url_for('submit_player') }}", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text })
-                });
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    alert('Submit failed: ' + (err.error || res.statusText));
-                    return;
-                }
-                const data = await res.json();
-                alert('Player submission saved.');
-                console.log('player submit response', data);
-                if (data.move) {
-                    // immediate redirect if server indicates everyone submitted
-                    window.location.href = "{{ url_for('reading') }}";
-                }
-            } catch (err) {
-                console.error('player submit error', err);
-                alert('Submit failed');
-            }
-        }
-
-        document.getElementById('player-submit').addEventListener('click', playerSubmit);
     </script>
+    <h1>Play</h1>
+    {% if username %}
+    <p>Ciao {{ username|e }}!!! </p>
+    {% else %}
+    <p>Non dovresti essere qui.</p>
+    {% endif %}
 
-    {% elif user_state == 'reader' %}
+    {% if user_state == 'reader' %}
     <div>
-        <label for="reader-word">Word</label><br />
+        <label for="reader-word">Parola</label><br />
         <input id="reader-word" name="word" type="text" maxlength="60" />
     </div>
+    {% endif %}
     <div style="margin-top:8px;">
-        <label for="reader-text">Full text</label><br />
-        <textarea id="reader-text" name="text" rows="4" cols="60"></textarea>
+        <label for="textarea">Definizione</label><br />
+        <textarea id="textarea" name="text" rows="4" cols="60"></textarea>
     </div>
     <div style="margin-top:8px;">
-        <button type="button" id="reader-submit">Submit (Reader)</button>
+        <button type="button" id="text-submit">Invia</button>
     </div>
 
+    {% if user_state == 'player' %}
     <script>
-        async function readerSubmit() {
-            const word = document.getElementById('reader-word').value.trim();
-            const text = document.getElementById('reader-text').value;
-            if (!word && !text) { alert('Please enter a word or text'); return; }
+        async function playerSubmit() {
+            const text = document.getElementById('textarea').value;
+            const payload = {};
+            if (text) payload.text = text;
             try {
-                const payload = {};
-                if (word) payload.word = word;
-                if (text) payload.text = text;
-
-                const res = await fetch("{{ url_for('submit_reader') }}", {
+                const res = await fetch("{{ url_for('play_submit') }}", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -106,36 +66,71 @@
                     return;
                 }
                 const data = await res.json();
-                alert('Reader submission saved.');
+                console.log('player submit response', data);
+                // disable the textarea and submit button to indicate saved state
+                const ta = document.getElementById('textarea');
+                const btn = document.getElementById('text-submit');
+                if (ta) ta.disabled = true;
+                if (btn) { btn.disabled = true; btn.textContent = 'Inviato'; }
+                if (data.move) {
+                    // immediate redirect if server indicates everyone submitted
+                    window.location.href = "{{ url_for('reading') }}";
+                }
+            } catch (err) {
+                console.error('player submit error', err);
+                // keep UX subtle: re-enable submit button on failure
+                const btn = document.getElementById('text-submit');
+                if (btn) btn.disabled = false;
+                alert('Submit failed');
+            }
+        }
+
+        document.getElementById('text-submit').addEventListener('click', playerSubmit);
+    </script>
+
+    {% elif user_state == 'reader' %}
+    <script>
+        async function readerSubmit() {
+            const word = document.getElementById('reader-word').value.trim();
+            const text = document.getElementById('textarea').value;
+            if (!word && !text) { alert('Please enter a word or text'); return; }
+            try {
+                const payload = {};
+                if (word) payload.word = word;
+                if (text) payload.text = text;
+
+                const res = await fetch("{{ url_for('play_submit') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    alert('Submit failed: ' + (err.error || res.statusText));
+                    return;
+                }
+                const data = await res.json();
                 console.log('reader submit response', data);
+                // disable inputs and button to indicate saved
+                const w = document.getElementById('reader-word');
+                const t = document.getElementById('textarea');
+                const b = document.getElementById('text-submit');
+                if (w) w.disabled = true;
+                if (t) t.disabled = true;
+                if (b) { b.disabled = true; b.textContent = 'Inviato'; }
                 if (data.move) {
                     window.location.href = "{{ url_for('reading') }}";
                 }
             } catch (err) {
                 console.error('reader submit error', err);
+                // re-enable submit button on failure
+                const b = document.getElementById('text-submit');
+                if (b) b.disabled = false;
                 alert('Submit failed');
             }
         }
 
-        document.getElementById('reader-submit').addEventListener('click', readerSubmit);
-    </script>
-
-    {% else %}
-    <div>
-        <label for="play-text">Text</label><br />
-        <textarea id="play-text" name="text" rows="6" cols="60"></textarea>
-    </div>
-    <div style="margin-top:8px;">
-        <button type="button" id="play-submit">Submit</button>
-    </div>
-
-    <script>
-        // Fallback no-op submit
-        document.getElementById('play-submit').addEventListener('click', function () {
-            const text = document.getElementById('play-text').value;
-            console.log('Fallback submit (no-op):', text);
-            alert('Submitted (no-op): ' + (text ? text.substring(0, 200) : '(empty)'));
-        });
+        document.getElementById('text-submit').addEventListener('click', readerSubmit);
     </script>
     {% endif %}
 </body>

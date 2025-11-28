@@ -71,3 +71,20 @@ textarea {
         font-size: 1rem;
     }
 }
+
+/* Reading carousel tweaks */
+.carousel-box {
+    position: relative;
+}
+
+.carousel-box div {
+    text-align: center;
+}
+
+/* ensure any element with .carousel-definition sits at the bottom of the box */
+.carousel-box .carousel-definition {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 2em;
+}

@@ -42,15 +42,14 @@
 </head>
 
 <body>
-    <h1>Reading Page</h1>
     {% if not username %}
     <p>You are not logged in; please register from the landing page.</p>
     {% else %}
 
     {% if user_state == 'player' %}
     <div class="center-word" role="status" aria-live="polite">
-        {% if reader_text %}
-        {{ reader_text.upper() }}
+        {% if game_word %}
+        {{ game_word.upper() }}
         {% else %}
         (no word from reader yet)
         {% endif %}
@@ -59,13 +58,11 @@
     {% elif user_state == 'reader' %}
     <div class="carousel">
         <div id="carousel-box" class="carousel-box">
+            <div><b> {{ game_word.upper() }} </b></div>
             {% if player_texts %}
-            <div id="carousel-item">
-                <strong>{{ player_texts[0].username }}:</strong>
-                <div>{{ player_texts[0].text }}</div>
-            </div>
+            <div id="carousel-definition" , class="carousel-definition">{{ player_texts[0].text }}</div>
             {% else %}
-            <div id="carousel-item">No player texts yet.</div>
+            <div>No player texts yet.</div>
             {% endif %}
         </div>
 
@@ -76,6 +73,61 @@
         </div>
     </div>
 
+    <!-- Reader-only controls: two toggles and a button on a single row -->
+    <div id="reader-controls-row"
+        style="margin-top:12px; display:flex; gap:12px; align-items:center; justify-content:center;">
+        <label style="display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="toggle-first" checked />
+            <span>First</span>
+        </label>
+
+        <label style="display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="toggle-second" />
+            <span>Second</span>
+        </label>
+
+        <div>
+            <button id="reader-action">Prossimo Round</button>
+        </div>
+    </div>
+
+    <script>
+        // Reader controls behavior
+        (function () {
+            const t1 = document.getElementById('toggle-first');
+            const t2 = document.getElementById('toggle-second');
+            const btn = document.getElementById('reader-action');
+
+            // initial states: first checked (already set in markup), second unchecked
+            function updateButtonState() {
+                btn.disabled = !t2.checked;
+            }
+
+            // when first toggle is changed, enforce second accordingly
+            t1.addEventListener('change', function () {
+                if (t1.checked) {
+                    t2.checked = true;
+                } else {
+                    t2.checked = false;
+                }
+                updateButtonState();
+            });
+
+            // allow manual toggling of second; but first will override when toggled
+            t2.addEventListener('change', function () {
+                updateButtonState();
+            });
+
+            // button action: small alert to demonstrate
+            btn.addEventListener('click', function () {
+                alert('Reader action triggered');
+            });
+
+            // initialize
+            updateButtonState();
+        })();
+    </script>
+
     <script>
         const items = {{ player_texts| tojson }} || [];
         let idx = 0;
@@ -83,13 +135,13 @@
 
         function render() {
             const box = document.getElementById('carousel-box');
-            const el = document.getElementById('carousel-item');
+            const el = document.getElementById('carousel-definition');
             if (!items.length) {
                 el.innerHTML = 'No player texts yet.';
                 return;
             }
             const it = items[idx];
-            el.innerHTML = `<strong>${it.username}:</strong><div>${it.text}</div>`;
+            el.innerHTML = `${it.text}`;
         }
 
         document.getElementById('prev').addEventListener('click', function () {

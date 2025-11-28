@@ -248,79 +248,59 @@ def reading():
     "reading.html",
     username=username,
     user_state=user_state,
-    reader_text=word,
+    game_word=word,
     player_texts=player_texts,
   )
 
 
-@app.route("/play/submit_player", methods=["POST"])
-def submit_player():
-  # Player submits a longer free-form text. Authenticate via session username.
+@app.route("/play/submit", methods=["POST"])
+def play_submit():
+  """Single submit endpoint for both PLAYER and READER roles.
+
+  Behavior depends on the user's current `UserState` stored in `usersdb`:
+  - PLAYER: expects JSON/form `text` and stores it on `user.text`.
+  - READER: expects `word` and optional `text`. Stores `app_state.word` and
+    `user.text`.
+
+  After saving, the handler checks whether all participants have provided
+  their required submission; if so it advances `app_state.state`.
+  """
   username = session.get("username")
   if not username:
     return jsonify({"error": "not authenticated"}), 403
 
   data = request.get_json(silent=True) or request.form
-  text = data.get("text") if hasattr(data, "get") else None
-  if text is None:
-    return jsonify({"error": "text is required for player submissions"}), 400
 
   with USERS_LOCK:
     user = usersdb.get(username)
     if user is None:
       return jsonify({"error": "user not found"}), 404
-    user.text = str(text)
+    role = user.state
 
-  # After saving, check whether all users have submitted
-  move_to_reading = False
-  with USERS_LOCK:
-    # require reader has provided a word stored in app_state.word
-    all_submitted = True
-    for u in usersdb.values():
-      if u.state is UserState.PLAYER:
-        if not (u.text and str(u.text).strip()):
-          all_submitted = False
-          break
-      elif u.state is UserState.READER:
-        # reader's chosen word is stored on app_state.word
-        with STATE_LOCK:
-          if not (app_state.word and str(app_state.word).strip()):
-            all_submitted = False
-            break
-    if all_submitted:
-      with STATE_LOCK:
-        app_state.state = GameState.GAME_WAITING_FOR_DEFINITIONS_IRL
-      move_to_reading = True
-
-  return jsonify({"ok": True, "text": user.text, "move": move_to_reading})
-
-
-@app.route("/play/submit_reader", methods=["POST"])
-def submit_reader():
-  # Reader may submit either a single word or a full text. Authenticate via session username.
-  username = session.get("username")
-  if not username:
-    return jsonify({"error": "not authenticated"}), 403
-
-  data = request.get_json(silent=True) or request.form
-  word = data.get("word") if hasattr(data, "get") else None
-  text = data.get("text") if hasattr(data, "get") else None
-  if not word and not text:
-    return jsonify({"error": "word and text is required"}), 400
-
-  with USERS_LOCK:
-    user = usersdb.get(username)
-    if user is None:
-      return jsonify({"error": "user not found"}), 404
-    # prefer storing full text when provided
-    if text:
+  # Handle by role
+  if role is UserState.PLAYER:
+    text = data.get("text") if hasattr(data, "get") else None
+    if text is None:
+      return jsonify({"error": "text is required for player submissions"}), 400
+    with USERS_LOCK:
+      user = usersdb.get(username)
       user.text = str(text)
-    else:
-      user.text = "omissis"
+    saved_value = user.text
 
-  # store the reader's chosen word in app_state for players to see
-  with STATE_LOCK:
-    app_state.word = str(word or "")
+  elif role is UserState.READER:
+    word = data.get("word") if hasattr(data, "get") else None
+    text = data.get("text") if hasattr(data, "get") else None
+    if not word or not text:
+      return jsonify({"error": "word and text is required for reader submissions"}), 400
+    with USERS_LOCK:
+      user = usersdb.get(username)
+      user.text = str(text)
+      saved_value = user.text
+    with STATE_LOCK:
+      app_state.word = str(word or "")
+
+  else:
+    return jsonify({"error": "user not in a valid role for submissions"}), 400
 
   # After saving, check whether all users have submitted
   move_to_reading = False
@@ -332,17 +312,16 @@ def submit_reader():
           all_submitted = False
           break
       elif u.state is UserState.READER:
-        # ensure the reader provided a word (app_state.word)
         with STATE_LOCK:
           if not (app_state.word and str(app_state.word).strip()):
             all_submitted = False
             break
     if all_submitted:
       with STATE_LOCK:
-        app_state.state = GameState.GAME_WAITING_FOR_DEFINITIONS_IRL
+        app_state.state = GameState.GAME_WAITING_FOR_DECISION_IRL
       move_to_reading = True
 
-  return jsonify({"ok": True, "value": user.text, "move": move_to_reading})
+  return jsonify({"ok": True, "value": saved_value, "move": move_to_reading})
 
 
 if __name__ == "__main__":
