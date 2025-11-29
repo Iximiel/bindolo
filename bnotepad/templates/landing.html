@@ -9,7 +9,7 @@
 </head>
 
 <body>
-    <h1>Hello {{ username|e }}!</h1>
+    <h1>Ciao {{ username|e }}!</h1>
     <p><a href="{{ url_for('index') }}">Back</a></p>
 
     {% if accepted is defined and not accepted %}
@@ -22,7 +22,7 @@
 
     <div>
         <input type="checkbox" id="ready-checkbox" />
-        <label for="ready-checkbox">Ready</label>
+        <label for="ready-checkbox">Pronti!</label>
     </div>
 
     <script>
@@ -30,7 +30,7 @@
 
         // expose username & initial state from server-rendered template
         const USERNAME = {{ username| tojson }};
-        const INITIAL_USER_STATE = {{ (user_state |default ('entering'))| tojson }};
+        const INITIAL_USER_STATE = {{ (user_state | default ('entering')) | tojson }};
 
         let _initialized = false;
 
@@ -66,19 +66,19 @@
                 }
 
                 if (data.all_ready) {
-                    alertEl.textContent = 'All players are READY. Redirecting...';
+                    alertEl.textContent = 'Tutti sono pronti. Preparati...';
                     alertEl.style.display = 'block';
                     // brief delay so users see the message before redirect
                     setTimeout(() => { window.location.href = "{{ url_for('play') }}"; }, 700);
                     return;
                 } else if (data.necessary_players) {
-                    alertEl.textContent = 'Enough players have joined.';
+                    alertEl.textContent = 'Si può iniziare a giocare!!!';
                     alertEl.style.display = 'block';
                 } else {
                     alertEl.style.display = 'none';
                 }
             } catch (err) {
-                console.error('Error checking game status', err);
+                console.error('Non sono riuscito a comunicare al server, riprova con il check.', err);
             }
         }
 
