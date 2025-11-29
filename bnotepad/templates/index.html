@@ -10,7 +10,7 @@
 
 <body>
     <h1>Bindolo Notepad</h1>
-    <form action="{{ url_for('landing') }}" method="post">
+    <form action="{{ url_for('game.landing') }}" method="post">
         <label for="username">Inserisci il tuo nome:</label>
         <input id="username" name="username" type="text" required />
         <button type="submit">Invia</button>

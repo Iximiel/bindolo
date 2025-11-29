@@ -17,10 +17,10 @@
                 if (!res.ok) return;
                 const s = await res.json();
                 if (s.state === 'game_waiting_for_decision_irl') {
-                    window.location.href = "{{ url_for('reading') }}";
+                    window.location.href = "{{ url_for('game.reading') }}";
                 }
                 if (s.state === 'waiting_for_players') {
-                    window.location.href = "{{ url_for('landing') }}";
+                    window.location.href = "{{ url_for('game.landing') }}";
                 }
             } catch (err) {
                 console.error('error polling state', err);
@@ -58,7 +58,7 @@
             const payload = {};
             if (text) payload.text = text;
             try {
-                const res = await fetch("{{ url_for('play_submit') }}", {
+                const res = await fetch("{{ url_for('game.play_submit') }}", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -77,7 +77,7 @@
                 if (btn) { btn.disabled = true; btn.textContent = 'Inviato'; }
                 if (data.move) {
                     // immediate redirect if server indicates everyone submitted
-                    window.location.href = "{{ url_for('reading') }}";
+                    window.location.href = "{{ url_for('game.reading') }}";
                 }
             } catch (err) {
                 console.error('player submit error', err);
@@ -102,7 +102,7 @@
                 if (word) payload.word = word;
                 if (text) payload.text = text;
 
-                const res = await fetch("{{ url_for('play_submit') }}", {
+                const res = await fetch("{{ url_for('game.play_submit') }}", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -122,7 +122,7 @@
                 if (t) t.disabled = true;
                 if (b) { b.disabled = true; b.textContent = 'Inviato'; }
                 if (data.move) {
-                    window.location.href = "{{ url_for('reading') }}";
+                    window.location.href = "{{ url_for('game.reading') }}";
                 }
             } catch (err) {
                 console.error('reader submit error', err);

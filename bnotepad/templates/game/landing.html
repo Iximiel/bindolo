@@ -36,7 +36,7 @@
 
         async function setUserReady() {
             try {
-                const res = await fetch("{{ url_for('set_user_ready') }}", {
+                const res = await fetch("{{ url_for('game.set_user_ready') }}", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username: USERNAME })
@@ -69,7 +69,7 @@
                     alertEl.textContent = 'Tutti sono pronti. Preparati...';
                     alertEl.style.display = 'block';
                     // brief delay so users see the message before redirect
-                    setTimeout(() => { window.location.href = "{{ url_for('play') }}"; }, 700);
+                    setTimeout(() => { window.location.href = "{{ url_for('game.play') }}"; }, 700);
                     return;
                 } else if (data.necessary_players) {
                     alertEl.textContent = 'Si può iniziare a giocare!!!';
