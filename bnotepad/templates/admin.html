@@ -9,45 +9,94 @@
 </head>
 
 <body>
-    <h1>Admin — Players</h1>
-    <p>This is a passive admin view showing connected players and their state.</p>
+    <h1>Bindolo Notepad</h1>
+    <p>Stato del server.</p>
 
     <section>
-        <h2>Players</h2>
+        <h2>Server</h2>
+        <ul id="server-list">
+            <li>Stato: <span id="server-state">non disponibile</span>
+            </li>
+            <li>Parola corrente: <span id="server-word"> - </span>
+            </li>
+            <li>Accetta Giocatori: <span id="server-started"> sì </span>
+            </li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Giocatori</h2>
         <ul id="players-list">
             <li>Loading…</li>
         </ul>
     </section>
 
     <script>
-        const POLL_INTERVAL_MS = 3000;
+        const POLL_INTERVAL_MS = 5000;
 
-        async function loadPlayers() {
+        async function loadState() {
+            const playerList = document.getElementById('players-list');
             try {
                 const res = await fetch("{{ url_for('get_players') }}", { cache: 'no-store' });
-                if (!res.ok) return;
-                const data = await res.json();
-                const list = document.getElementById('players-list');
-                list.innerHTML = '';
-                const keys = Object.keys(data).sort();
-                if (keys.length === 0) {
-                    const li = document.createElement('li');
-                    li.textContent = 'No players';
-                    list.appendChild(li);
-                    return;
-                }
-                for (const k of keys) {
-                    const li = document.createElement('li');
-                    li.textContent = `${k} — ${data[k]}`;
-                    list.appendChild(li);
+                if (res.ok) {
+                    const data = await res.json();
+                    playerList.innerHTML = '';
+                    const users = data.users;
+                    const keys = Object.keys(users).sort();
+                    if (keys.length === 0) {
+                        const li = document.createElement('li');
+                        li.textContent = 'No players';
+                        playerList.appendChild(li);
+                        return;
+                    }
+                    for (const k of keys) {
+                        const li = document.createElement('li');
+                        li.textContent = `${k} — ${users[k]}`;
+                        playerList.appendChild(li);
+                    }
                 }
             } catch (err) {
                 console.error('Failed loading players', err);
+                const li = document.createElement('li');
+                li.textContent = 'No players';
+                playerList.appendChild(li);
+            }
+            const serverList = document.getElementById('server-list');
+            try {
+                const res = await fetch("{{ url_for('get_state') }}", { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    const state = data.state;
+                    if (state) {
+                        document.getElementById('server-state').innerHTML = state;
+
+                    }
+                    const word = data.word;
+                    if (word) {
+                        document.getElementById('server-word').innerHTML = word;
+                    } else {
+                        document.getElementById('server-word').innerHTML = ' -';
+                    }
+
+                    if ("started" in data) {
+                        const started = data.started;
+
+                        document.getElementById('server-started').innerHTML = started ? ' no' : ' sì';
+
+                    } else {
+                        document.getElementById('server-started').innerHTML = ' -';
+                    }
+                }
+            } catch (err) {
+                console.error('Failed loading players', err);
+                // const li = document.createElement('li');
+                // li.textContent = 'Failed to load server state';
+                // serverList.appendChild(li);
             }
         }
 
-        loadPlayers();
-        setInterval(loadPlayers, POLL_INTERVAL_MS);
+        loadState();
+        setInterval(loadState, POLL_INTERVAL_MS);
     </script>
 </body>
 

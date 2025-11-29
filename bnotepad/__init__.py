@@ -202,7 +202,7 @@ def get_users():
 def get_players():
   # return a simple mapping of username -> state (no text)
   with USERS_LOCK:
-    return jsonify({k: v.state.value for k, v in usersdb.items()})
+    return jsonify({"users": {k: v.state.value for k, v in usersdb.items()}})
 
 
 @app.route("/state", methods=["GET"])
@@ -213,6 +213,7 @@ def get_state():
         "state": app_state.state.value,
         "info": app_state.info or {},
         "started": app_state.started,
+        "word": app_state.word,
       }
     )
 
@@ -375,7 +376,13 @@ def play_submit():
         app_state.state = GameState.GAME_WAITING_FOR_DECISION_IRL
       move_to_reading = True
 
-  return jsonify({"ok": True, "value": saved_value, "move": move_to_reading})
+  return jsonify(
+    {
+      "ok": True,
+      "value": saved_value,
+      "move": move_to_reading,
+    }
+  )
 
 
 if __name__ == "__main__":
