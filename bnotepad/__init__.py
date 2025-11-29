@@ -61,8 +61,8 @@ STATE_LOCK = Lock()
 # and safe for development — it won't run unless you set the env var.
 if os.getenv("BINDOLO_FAKE_USERS") == "1":
   with USERS_LOCK:
-    usersdb.setdefault("alice", UserInfo())
-    usersdb.setdefault("bob", UserInfo())
+    usersdb.setdefault("Antonietta", UserInfo())
+    usersdb.setdefault("Bromualdo", UserInfo())
 
 
 @app.route("/", methods=["GET"])
