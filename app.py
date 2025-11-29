@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Any
+import random
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from threading import Lock
@@ -256,11 +257,15 @@ def reading():
         user_state = user.state.value
 
     # collect player texts (exclude empty)
-    player_texts = [
-      {"username": uname, "text": u.text}
-      for uname, u in usersdb.items()
-      if (u.text is not None and u.text != "")
-    ]
+    player_texts = []
+    # If the current session user is the reader, present player texts in a random order
+    if user_state == UserState.READER.value:
+      player_texts = [
+        {"text": u.text}
+        for _, u in usersdb.items()
+        if (u.text is not None and u.text != "")
+      ]
+      random.shuffle(player_texts)
   with STATE_LOCK:
     word = app_state.word
 
