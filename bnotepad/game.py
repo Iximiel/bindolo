@@ -46,7 +46,9 @@ def landing():
     if current_state is not GameState.WAITING_FOR_NEW_PLAYERS:
       # registration closed — show informative landing with rejection
       accepted = False
-      reason = "Registration is closed: game already started for this session."
+      reason = (
+        "La partita è già iniziata. Non si possono più aggiungere nuovi giocatori."
+      )
     else:
       accepted = True
       # register user in-memory

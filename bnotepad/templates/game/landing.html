@@ -10,9 +10,9 @@
 
 <body>
     <h1>Ciao {{ username|e }}!</h1>
-    <p><a href="{{ url_for('index') }}">Back</a></p>
+    <p><a href="{{ url_for('index') }}">Torna alla home</a></p>
 
-    {% if accepted is defined and not accepted %}
+    {% if not accepted %}
     <div class="notice" role="alert">
         {{ reason|e }}
     </div>
@@ -21,10 +21,10 @@
     <div id="user-alert" role="status" aria-live="polite"></div>
 
     <div>
-        <input type="checkbox" id="ready-checkbox" />
+        <input type="checkbox" id="ready-checkbox" {%- if not accepted %} disabled="true" {% endif %} />
         <label for="ready-checkbox">Pronti!</label>
     </div>
-
+    {% if accepted %}
     <script>
         const POLL_INTERVAL_MS = 3000;
 
@@ -82,7 +82,7 @@
             }
         }
 
-        // initial check and periodic polling
+        // initial check and periodic polling    
         checkGameStatus();
         setInterval(checkGameStatus, POLL_INTERVAL_MS);
 
@@ -99,6 +99,7 @@
             }
         });
     </script>
+    {% endif %}
 </body>
 
 </html>

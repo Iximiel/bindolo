@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, session
 import os
 from .state import (
   # global variables
@@ -70,6 +70,7 @@ def create_app(test_config=None):
 
   @app.route("/", methods=["GET"])
   def index():
+    session.clear()
     # TODO: reset the session here
     # pass the current mapping of stored usernames to the template
     with USERS_LOCK:
