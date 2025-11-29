@@ -15,3 +15,7 @@ indent-width = 2
 [tool.ruff.format]
 indent-style = "space"
 ```
+
+I finished the montly chat quota 2 commit ago, this means that I am going to make this readable a more compact
+There is a lot of repeating code!
+And I want to vandalize the css with my own goofy hands eheh
