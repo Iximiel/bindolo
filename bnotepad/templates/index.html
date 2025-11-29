@@ -9,28 +9,12 @@
 </head>
 
 <body>
-    <h1>Welcome to Bindolo Notepad</h1>
-    <p><strong>App state:</strong> {{ state }}</p>
+    <h1>Bindolo Notepad</h1>
     <form action="{{ url_for('landing') }}" method="post">
-        <label for="username">Enter your username:</label>
+        <label for="username">Inserisci il tuo nome:</label>
         <input id="username" name="username" type="text" required />
-        <button type="submit">Submit</button>
+        <button type="submit">Invia</button>
     </form>
-
-    {% if users %}
-    <section>
-        <h2>Stored Usernames (in-memory)</h2>
-        <ul>
-            {% for u, info in users.items() %}
-            <li>{{ u|e }} — state: {{ info.state }}{% if info.text %}, text: {{ info.text|e }}{% endif %}</li>
-            {% endfor %}
-        </ul>
-        <form action="{{ url_for('clear_users') }}" method="post" style="display:inline">
-            <button type="submit">Clear stored usernames</button>
-        </form>
-        <a href="{{ url_for('get_users') }}">View as JSON</a>
-    </section>
-    {% endif %}
 </body>
 
 </html>
