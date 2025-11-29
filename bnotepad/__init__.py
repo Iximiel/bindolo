@@ -29,6 +29,7 @@ class UserInfo:
 
 
 class GameState(Enum):
+  WAITING_FOR_NEW_PLAYERS = "waiting_for_new_players"
   WAITING_FOR_PLAYERS = "waiting_for_players"
   GAME_WAITING_FOR_DEFINITIONS = "game_waiting_for_definitions"
   GAME_WAITING_FOR_DECISION_IRL = "game_waiting_for_decision_irl"
@@ -38,10 +39,8 @@ class GameState(Enum):
 class AppState:
   """Global application state held in-memory while the process runs."""
 
-  state: GameState = GameState.WAITING_FOR_PLAYERS
+  state: GameState = GameState.WAITING_FOR_NEW_PLAYERS
   info: Dict[str, Any] | None = None
-  # becomes True the first time all users are ready (and minimum player requirement met)
-  started: bool = False
   word: str | None = None
   # rotation order for selecting the reader and next index
   reader_order: list[str] | None = None
@@ -77,6 +76,9 @@ def index():
 
 @app.route("/landing", methods=["POST", "GET"])
 def landing():
+  reason = None
+  user_state = None
+  accepted = False
   if request.method == "POST":
     username = request.form.get("username", "").strip()
     if not username:
@@ -85,31 +87,22 @@ def landing():
     # Only allow new users while the app is waiting for players
     with STATE_LOCK:
       current_state = app_state.state
-      started = app_state.started
 
-    if current_state is not GameState.WAITING_FOR_PLAYERS or started:
+    if current_state is not GameState.WAITING_FOR_NEW_PLAYERS:
       # registration closed — show informative landing with rejection
-      if started:
-        reason = "Registration is closed: game already started for this session."
-      else:
-        reason = f"Registration is closed (state={current_state.value})."
-      return render_template(
-        "landing.html", username=username, accepted=False, reason=reason
-      )
+      accepted = False
+      reason = "Registration is closed: game already started for this session."
+    else:
+      accepted = True
+      # register user in-memory
+      with USERS_LOCK:
+        info = usersdb.get(username)
+        if info is None:
+          info = UserInfo()
+          usersdb[username] = info
 
-    # register user in-memory
-    with USERS_LOCK:
-      info = usersdb.get(username)
-      if info is None:
-        info = UserInfo()
-        usersdb[username] = info
-
-      # persist username in session so subsequent pages know which user this is
-      session["username"] = username
-
-    return render_template(
-      "landing.html", username=username, accepted=True, user_state=info.state.value
-    )
+        # persist username in session so subsequent pages know which user this is
+        session["username"] = username
   else:
     # If the user has a session username, show the landing view for them.
     username = session.get("username")
@@ -120,10 +113,15 @@ def landing():
       info = usersdb.get(username)
       if info is None:
         return redirect(url_for("index"))
-
-    return render_template(
-      "landing.html", username=username, accepted=True, user_state=info.state.value
-    )
+    user_state = info.state.value
+    accepted = True
+  return render_template(
+    "landing.html",
+    username=username,
+    accepted=accepted,
+    reason=reason,
+    user_state=user_state,
+  )
 
 
 @app.route("/user/ready", methods=["POST"])
@@ -142,7 +140,7 @@ def set_user_ready():
   check_readiness()
   # return the new state and whether the game has started
   with STATE_LOCK:
-    started_flag = app_state.started
+    started_flag = app_state.state != GameState.WAITING_FOR_NEW_PLAYERS
 
   return jsonify(
     {"username": username, "state": user.state.value, "started": started_flag}
@@ -158,14 +156,16 @@ def check_readiness():
   # If all are ready and we've reached the minimum players, mark the game started
   if necessary_players and all_ready:
     with STATE_LOCK:
-      if app_state.state is GameState.WAITING_FOR_PLAYERS:
-        app_state.state = GameState.GAME_WAITING_FOR_DEFINITIONS
+      if (
+        app_state.state is GameState.WAITING_FOR_PLAYERS
+        or app_state.state is GameState.WAITING_FOR_NEW_PLAYERS
+      ):
         # now we do not accept any new user
-        if not app_state.started:
+        if app_state.state is GameState.WAITING_FOR_NEW_PLAYERS:
           with USERS_LOCK:
             app_state.reader_order = list(usersdb.keys())
             app_state.reader_idx = 0
-        app_state.started = True
+        app_state.state = GameState.GAME_WAITING_FOR_DEFINITIONS
         assert app_state.reader_order is not None
         assert app_state.reader_idx is not None
         # choose the next reader based on the rotation index
@@ -212,7 +212,7 @@ def get_state():
       {
         "state": app_state.state.value,
         "info": app_state.info or {},
-        "started": app_state.started,
+        "started": app_state.state != GameState.WAITING_FOR_NEW_PLAYERS,
         "word": app_state.word,
       }
     )
@@ -296,8 +296,6 @@ def reading_restart():
   # Reset global state and per-user states
   with STATE_LOCK:
     app_state.state = GameState.WAITING_FOR_PLAYERS
-    # we do not want to add new players now
-    app_state.started = True
     app_state.word = None
 
   with USERS_LOCK:
