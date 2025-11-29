@@ -78,6 +78,7 @@
 
     {% elif user_state == 'reader' %}
     <div class="carousel">
+        <div class="carousel-counter" id="carousel-counter-idx">1 / {{ player_texts | length }}</div>
         <div id="carousel-box" class="carousel-box">
             <div><b> {{ game_word.upper() }} </b></div>
             {% if player_texts %}
@@ -177,6 +178,8 @@
             }
             const it = items[idx];
             el.innerHTML = `${it.text}`;
+            const cnt = document.getElementById('carousel-counter-idx');
+            cnt.textContent = `${idx + 1} / ${items.length}`;
         }
 
         document.getElementById('prev').addEventListener('click', function () {

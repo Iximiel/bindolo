@@ -5,10 +5,11 @@ from typing import Dict, Any
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from threading import Lock
 import os
-import random
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
+
+MINIMUM_PLAYERS = 3  # minimum number of players required to start the game
 
 
 class UserState(Enum):
@@ -73,103 +74,71 @@ def index():
   return render_template("index.html", usersdb=current, state=current_state)
 
 
-@app.route("/landing", methods=["POST"])
+@app.route("/landing", methods=["POST", "GET"])
 def landing():
-  username = request.form.get("username", "").strip()
-  if not username:
-    return redirect(url_for("index"))
+  if request.method == "POST":
+    username = request.form.get("username", "").strip()
+    if not username:
+      return redirect(url_for("index"))
 
-  # Only allow new users while the app is waiting for players
-  with STATE_LOCK:
-    current_state = app_state.state
-    started = app_state.started
+    # Only allow new users while the app is waiting for players
+    with STATE_LOCK:
+      current_state = app_state.state
+      started = app_state.started
 
-  if current_state is not GameState.WAITING_FOR_PLAYERS or started:
-    # registration closed — show informative landing with rejection
-    if started:
-      reason = "Registration is closed: game already started for this session."
-    else:
-      reason = f"Registration is closed (state={current_state.value})."
+    if current_state is not GameState.WAITING_FOR_PLAYERS or started:
+      # registration closed — show informative landing with rejection
+      if started:
+        reason = "Registration is closed: game already started for this session."
+      else:
+        reason = f"Registration is closed (state={current_state.value})."
+      return render_template(
+        "landing.html", username=username, accepted=False, reason=reason
+      )
+
+    # register user in-memory
+    with USERS_LOCK:
+      info = usersdb.get(username)
+      if info is None:
+        info = UserInfo()
+        usersdb[username] = info
+
+      # persist username in session so subsequent pages know which user this is
+      session["username"] = username
+
     return render_template(
-      "landing.html", username=username, accepted=False, reason=reason
+      "landing.html", username=username, accepted=True, user_state=info.state.value
+    )
+  else:
+    # If the user has a session username, show the landing view for them.
+    username = session.get("username")
+    if not username:
+      return redirect(url_for("index"))
+
+    with USERS_LOCK:
+      info = usersdb.get(username)
+      if info is None:
+        return redirect(url_for("index"))
+
+    return render_template(
+      "landing.html", username=username, accepted=True, user_state=info.state.value
     )
 
-  # register user in-memory
-  with USERS_LOCK:
-    info = usersdb.get(username)
-    if info is None:
-      info = UserInfo()
-      usersdb[username] = info
 
-    # persist username in session so subsequent pages know which user this is
-    session["username"] = username
-
-  return render_template(
-    "landing.html", username=username, accepted=True, user_state=info.state.value
-  )
-
-
-@app.route("/user/state", methods=["POST"])
-def set_user_state():
-  # Accept JSON or form data with `username` and `state`
+@app.route("/user/ready", methods=["POST"])
+def set_user_ready():
+  # Accept JSON or form data with `username`
   data = request.get_json(silent=True) or request.form
   username = data.get("username") if hasattr(data, "get") else None
-  state_val = data.get("state") if hasattr(data, "get") else None
-  if not username or not state_val:
-    return jsonify({"error": "username and state are required"}), 400
+  if not username:
+    return jsonify({"error": "username is required"}), 400
 
   with USERS_LOCK:
     user = usersdb.get(username)
     if user is None:
       return jsonify({"error": "user not found"}), 404
-    try:
-      new_state = UserState(state_val)
-    except ValueError:
-      # allow passing enum name as alternative
-      try:
-        new_state = UserState[state_val.upper()]
-      except Exception:
-        return jsonify({"error": "invalid state"}), 400
-    user.state = new_state
-
-  # After updating the user's state, check whether all users are READY
-  with USERS_LOCK:
-    total = len(usersdb)
-    necessary_players = total >= 3
-    all_ready = total > 0 and all(v.state is UserState.READY for v in usersdb.values())
-
-  # If all are ready and we've reached the minimum players, mark the game started
-  if necessary_players and all_ready:
-    with STATE_LOCK:
-      if app_state.state is GameState.WAITING_FOR_PLAYERS:
-        app_state.state = GameState.GAME_WAITING_FOR_DEFINITIONS
-      if not app_state.started:
-        app_state.started = True
-        # Build or refresh a rotation order for readers. We preserve any
-        # existing order where possible, but default to the current user list.
-        with USERS_LOCK:
-          current_users = list(usersdb.keys())
-
-        # If there's no existing order or it doesn't match the current users,
-        # create a new order from the current user list.
-        if not app_state.reader_order or set(app_state.reader_order) != set(current_users):
-          app_state.reader_order = current_users.copy()
-          app_state.reader_idx = 0
-
-        # choose the next reader based on the rotation index
-        if app_state.reader_order:
-          idx = app_state.reader_idx % len(app_state.reader_order)
-          reader = app_state.reader_order[idx]
-          app_state.reader_idx = (idx + 1) % len(app_state.reader_order)
-
-          # Assign roles accordingly
-          with USERS_LOCK:
-            for uname, u in usersdb.items():
-              if uname == reader:
-                u.state = UserState.READER
-              else:
-                u.state = UserState.PLAYER
-
+    user.state = UserState.READY
+  check_readiness()
   # return the new state and whether the game has started
   with STATE_LOCK:
     started_flag = app_state.started
@@ -179,6 +148,40 @@ def set_user_state():
   )
 
 
+def check_readiness():
+  with USERS_LOCK:
+    total = len(usersdb)
+    necessary_players = total >= MINIMUM_PLAYERS
+    all_ready = total > 0 and all(v.state is UserState.READY for v in usersdb.values())
+
+  # If all are ready and we've reached the minimum players, mark the game started
+  if necessary_players and all_ready:
+    with STATE_LOCK:
+      if app_state.state is GameState.WAITING_FOR_PLAYERS:
+        app_state.state = GameState.GAME_WAITING_FOR_DEFINITIONS
+        # now we do not accept any new user
+        if not app_state.started:
+          with USERS_LOCK:
+            app_state.reader_order = list(usersdb.keys())
+            app_state.reader_idx = 0
+        app_state.started = True
+        assert app_state.reader_order is not None
+        assert app_state.reader_idx is not None
+        # choose the next reader based on the rotation index
+
+        idx = app_state.reader_idx % len(app_state.reader_order)
+        reader = app_state.reader_order[idx]
+        app_state.reader_idx = (idx + 1) % len(app_state.reader_order)
+
+        # Assign roles accordingly
+        with USERS_LOCK:
+          for uname, u in usersdb.items():
+            if uname == reader:
+              u.state = UserState.READER
+            else:
+              u.state = UserState.PLAYER
+
+
 @app.route("/usersdb", methods=["GET"])
 def get_users():
   # return simple status booleans used by the landing page polling JS
@@ -186,7 +189,7 @@ def get_users():
   # - `all_ready`: true when there is at least one user and every user is in the READY state
   with USERS_LOCK:
     total = len(usersdb)
-    necessary_players = total >= 3
+    necessary_players = total >= MINIMUM_PLAYERS
     # the all ready might need to be tweaked a bit: I do not thing it is robust to rely only on ENTERING here
     all_ready = total > 0 and all(
       v.state is not UserState.ENTERING for v in usersdb.values()
@@ -270,24 +273,24 @@ def reading():
   )
 
 
-@app.route('/reading/restart', methods=['POST'])
+@app.route("/reading/restart", methods=["POST"])
 def reading_restart():
   # Only the current reader may trigger a restart
-  username = session.get('username')
+  username = session.get("username")
   if not username:
-    return jsonify({'error': 'not authenticated'}), 403
+    return jsonify({"error": "not authenticated"}), 403
 
   with USERS_LOCK:
     user = usersdb.get(username)
     if user is None:
-      return jsonify({'error': 'user not found'}), 404
+      return jsonify({"error": "user not found"}), 404
     if user.state is not UserState.READER:
-      return jsonify({'error': 'only the reader may restart the round'}), 403
+      return jsonify({"error": "only the reader may restart the round"}), 403
 
   # Reset global state and per-user states
   with STATE_LOCK:
     app_state.state = GameState.WAITING_FOR_PLAYERS
-    #we do not want to add new players now
+    # we do not want to add new players now
     app_state.started = True
     app_state.word = None
 
@@ -296,7 +299,7 @@ def reading_restart():
       u.state = UserState.ENTERING
       u.text = ""
 
-  return jsonify({'ok': True})
+  return jsonify({"ok": True})
 
 
 @app.route("/play/submit", methods=["POST"])

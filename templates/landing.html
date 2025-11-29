@@ -34,12 +34,12 @@
 
         let _initialized = false;
 
-        async function setUserState(state) {
+        async function setUserReady() {
             try {
-                const res = await fetch("{{ url_for('set_user_state') }}", {
+                const res = await fetch("{{ url_for('set_user_ready') }}", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: USERNAME, state: state })
+                    body: JSON.stringify({ username: USERNAME })
                 });
                 return res.ok;
             } catch (err) {
@@ -89,12 +89,13 @@
         // handle checkbox change
         document.getElementById('ready-checkbox').addEventListener('change', async function (e) {
             const checked = e.target.checked;
-            const newState = checked ? 'ready' : 'entering';
-            const ok = await setUserState(newState);
-            if (!ok) {
-                // revert checkbox if update failed
-                e.target.checked = !checked;
-                alert('Failed to update ready state');
+            if (checked) {
+                const ok = await setUserReady();
+                if (!ok) {
+                    // revert checkbox if update failed
+                    e.target.checked = !checked;
+                    alert('Failed to update ready state');
+                }
             }
         });
     </script>
