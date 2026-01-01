@@ -8,10 +8,6 @@ from flask import (
   session,
 )
 import random
-from .__init__ import (
-  # constatnts
-  check_readiness,
-)
 from .state import (
   # global variables
   app_state,
@@ -23,6 +19,7 @@ from .state import (
   # locks
   USERS_LOCK,
   STATE_LOCK,
+  check_readiness,
 )
 
 
