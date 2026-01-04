@@ -11,10 +11,9 @@ from .state import (
   # locks
   USERS_LOCK,
   STATE_LOCK,
-  check_readiness,
+  # parameters
+  MINIMUM_PLAYERS,
 )
-
-MINIMUM_PLAYERS = 3  # minimum number of players required to start the game
 
 
 def create_app(test_config=None):

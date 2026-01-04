@@ -3,6 +3,8 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Dict, Any
 
+MINIMUM_PLAYERS = 3  # minimum number of players required to start the game
+
 
 class UserState(Enum):
   ENTERING = "entering"
