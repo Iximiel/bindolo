@@ -81,8 +81,15 @@ textarea {
     position: relative;
 }
 
+/* cards size is 49 x 69 mm */
 .carousel-box div {
     text-align: center;
+}
+
+#carousel-box {
+    aspect-ratio: 50 / 70;
+    max-height: 70mm;
+    /*max-width: 100%;*/
 }
 
 /* ensure any element with .carousel-definition sits at the bottom of the box */

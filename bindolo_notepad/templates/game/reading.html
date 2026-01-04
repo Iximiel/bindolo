@@ -89,9 +89,8 @@
         </div>
 
         <div class="carousel-controls">
-            <button id="prev"> &lt </button>
-            <button id="auto">Auto</button>
-            <button id="next"> &gt </button>
+            <button id="prev"> &larr; </button>
+            <button id="next"> &rarr; </button>
         </div>
     </div>
 
@@ -100,12 +99,12 @@
         style="margin-top:12px; display:flex; gap:12px; align-items:center; justify-content:center;">
         <label style="display:flex;align-items:center;gap:6px;">
             <input type="checkbox" id="toggle-first" />
-            <span>First</span>
+            <span>1 &rarr;</span>
         </label>
 
         <label style="display:flex;align-items:center;gap:6px;">
             <input type="checkbox" id="toggle-second" />
-            <span>Second</span>
+            <span>2 &rarr;</span>
         </label>
 
         <div>
@@ -191,21 +190,6 @@
             if (!items.length) return;
             idx = (idx + 1) % items.length;
             render();
-        });
-
-        document.getElementById('auto').addEventListener('click', function () {
-            if (interval) {
-                clearInterval(interval);
-                interval = null;
-                this.textContent = 'Auto';
-                return;
-            }
-            interval = setInterval(function () {
-                if (!items.length) return;
-                idx = (idx + 1) % items.length;
-                render();
-            }, 2500);
-            this.textContent = 'Stop';
         });
 
         // initial render
