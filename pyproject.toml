@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "bindolo-notepad"
-version = "0.1.1"
+version = "0.1.2"
 description = "Un progettino per evitare ai miei amici la mia pessima grafia"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -14,9 +14,6 @@ license = { text = "MIT" }
 dependencies = [
   "Flask==3.1.2",
 ]
-
-[project.scripts]
-bindolo = "bindolo_notepad.cli:run"
 
 [project.optional-dependencies]
 dev = [
@@ -30,4 +27,3 @@ dev = [
 indent-width = 2
 [tool.ruff.format]
 indent-style = "space"
-
